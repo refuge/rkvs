@@ -21,7 +21,7 @@ Name = "mydb",
 2 backends are available:
 
 - `rkvs_ets`: ETS backend
- - `rkvs_leveldb`: LevelDB backend using [eleveldb](https://github.com/basho/eleveldb) from Basho.
+- `rkvs_leveldb`: LevelDB backend using [eleveldb](https://github.com/basho/eleveldb) from Basho.
 
 ### Store a values
 

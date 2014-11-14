@@ -4,10 +4,6 @@ ebin
 edoc-info
 .DS_Store
 deps/
-doc/*.html
-doc/*.css
-doc/erlang.png
-doc/edoc-info
 .eunit
 .rebar
 test/temp

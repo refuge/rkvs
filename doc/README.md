@@ -123,7 +123,7 @@ make test
 
 
 <table width="100%" border="0" summary="list of modules">
-<tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs.md" class="module">rkvs</a></td></tr>
-<tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs_storage_backend.md" class="module">rkvs_storage_backend</a></td></tr>
-<tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs_util.md" class="module">rkvs_util</a></td></tr></table>
+<tr><td><a href="rkvs.md" class="module">rkvs</a></td></tr>
+<tr><td><a href="rkvs_storage_backend.md" class="module">rkvs_storage_backend</a></td></tr>
+<tr><td><a href="rkvs_util.md" class="module">rkvs_util</a></td></tr></table>
 

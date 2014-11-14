@@ -14,19 +14,23 @@ $(if $(ESCRIPT),,$(warning "Warning: No escript found in your path, this will pr
 
 all: deps compile
 
-dev: devbuild
-
 compile:
 	@$(REBAR) compile
 
 deps:
 	@$(REBAR) get-deps
 
-doc:
-	$(REBAR)  -C rebar_dev.config doc skip_deps=true
+doc: dev
+	$(REBAR) -C rebar_dev.config doc skip_deps=true
 
-test:
-	$(REBAR) eunit skip_deps=true
+test: dev
+	$(REBAR) -C rebar_dev.config eunit skip_deps=true
+
+dev: dev-deps
+	$(REBAR) -C rebar_dev.config compile
+
+dev-deps:
+	$(REBAR) -C rebar_dev.config get-deps
 
 clean:
 	@$(REBAR) clean

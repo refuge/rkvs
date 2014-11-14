@@ -107,7 +107,7 @@ Under C4.1 process, you are more than welcome to help us by:
 * join the discussion over anything from design to code style try out
 * and [submit issue reports](https://github.com/refuge/rkvs/issues/new)
 * or feature requests pick a task in
-* [issues](https://github.com/refuge/cowdb/issues) and get it done fork
+* [issues](https://github.com/refuge/rkvs/issues) and get it done fork
 * the repository and have your own fixes send us pull requests and even
 * star this project ^_^
 

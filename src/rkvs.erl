@@ -36,7 +36,7 @@
 -spec open(Name::binary(), Options::list()) ->
     {ok, engine()} | {error, any()}.
 open(Name, Options) ->
-    Mod = proplists:get_value(backend, Options, rkvs_eleveldb),
+    Mod = proplists:get_value(backend, Options, rkvs_leveldb),
     Mod:open(Name, Options).
 
 

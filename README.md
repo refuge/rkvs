@@ -124,6 +124,8 @@ make test
 
 <table width="100%" border="0" summary="list of modules">
 <tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs.md" class="module">rkvs</a></td></tr>
+<tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs_ets.md" class="module">rkvs_ets</a></td></tr>
+<tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs_leveldb.md" class="module">rkvs_leveldb</a></td></tr>
 <tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs_storage_backend.md" class="module">rkvs_storage_backend</a></td></tr>
 <tr><td><a href="http://github.com/refuge/rkvs/blob/master/doc/rkvs_util.md" class="module">rkvs_util</a></td></tr></table>
 

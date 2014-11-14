@@ -4,8 +4,13 @@
 %% License, v. 2.0. If a copy of the MPL was not distributed with this
 %% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-%%% @hidden
-
+%% @doc eleveldb backendi
+%%
+%% You can pass any options from
+%% [eleveldb](https://github.com/basho/eleveldb/blob/develop/src/eleveldb.erl)
+%% when opening the database using the db_opts settings.
+%%
+%% Optionnaly you can pass a db_dir option to set the path of the database.
 -module(rkvs_leveldb).
 -behaviour(rkvs_storage_backend).
 

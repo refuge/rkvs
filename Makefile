@@ -23,7 +23,7 @@ deps:
 	@$(REBAR) get-deps
 
 doc:
-	$(REBAR)  doc skip_deps=true
+	$(REBAR)  -C rebar_dev.config doc skip_deps=true
 
 test:
 	$(REBAR) eunit skip_deps=true

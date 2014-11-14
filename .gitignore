@@ -14,3 +14,9 @@ test/temp
 log
 .eunit
 .rebar
+test/sst*
+test/LOG*
+test/MANIFEST*
+test/*.log
+test/LOCK
+test/CURRENT

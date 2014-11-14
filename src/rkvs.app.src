@@ -1,0 +1,12 @@
+{application, rkvs,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {include_apps, [eleveldb]},
+  {env, []}
+ ]}.

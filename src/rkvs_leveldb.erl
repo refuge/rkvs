@@ -26,11 +26,16 @@
 
 
 open(Name, Options) ->
-    filelib:ensure_dir(filename:join(Name, "dummy")),
+    Path = case proplists:get_value(db_dir, Options) of
+               undefined -> Name;
+               Dir -> filename:join(Dir, Name)
+           end,
+
+    filelib:ensure_dir(filename:join(Path, "dummy")),
     DbOpts = proplists:get_value(db_opts, Options,
                                  [{create_if_missing, true}]),
 
-    case eleveldb:open(Name, DbOpts) of
+    case eleveldb:open(Path, DbOpts) of
         {ok, Ref} ->
             {ok, #engine{name=Name,
                          mod=?MODULE,

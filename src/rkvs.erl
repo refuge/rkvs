@@ -11,11 +11,11 @@
          scan/4,
          clear_range/4,
          fold/4,
-         fold_keys/4]).
+         fold_keys/4,
+         is_empty/1]).
 
 -include("rkvs.hrl").
 
--type engine() :: #engine{}.
 -type key() ::  term().
 -type keys() :: [key()].
 -type value() :: term().
@@ -25,8 +25,7 @@
 -type fold_options() :: [{start_key, key()} |
                          {end_key, key()} |
                          {max, integer()}].
--export_type([engine/0,
-             key/0, keys/0,
+-export_type([key/0, keys/0,
              value/0,
              kvs/0,
              ops_kvs/0]).
@@ -95,3 +94,8 @@ fold_keys(#engine{mod=Mod}=Engine, Fun, Acc0, Opts) ->
     any() | {error, term()}.
 fold(#engine{mod=Mod}=Engine, Fun, Acc0, Opts) ->
     Mod:fold(Engine, Fun, Acc0, Opts).
+
+%% @doc Returns true if this backend contains any values; otherwise returns false.
+-spec is_empty(engine()) -> boolean() | {error, term()}.
+is_empty(#engine{mod=Mod}=Engine) ->
+    Mod:is_empty(Engine).

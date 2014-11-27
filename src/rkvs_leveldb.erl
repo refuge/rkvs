@@ -27,7 +27,8 @@
          scan/4,
          clear_range/4,
          fold/4,
-         fold_keys/4]).
+         fold_keys/4,
+         is_empty/1]).
 
 
 open(Name, Options) ->
@@ -168,3 +169,9 @@ enc(T) ->
 
 dec(B) ->
     binary_to_term(B).
+
+
+%% @doc Returns true if this backend contains any values; otherwise returns false.
+-spec is_empty(engine()) -> boolean() | {error, term()}.
+is_empty(#engine{ref=Ref}) ->
+    eleveldb:is_empty(Ref).

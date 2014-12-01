@@ -22,7 +22,8 @@
          scan/4,
          clear_range/4,
          fold/4,
-         fold_keys/4]).
+         fold_keys/4,
+         is_empty/1]).
 
 
 open(Name, Options) ->
@@ -45,8 +46,8 @@ contains(#engine{ref=Ref}, Key) ->
 
 get(#engine{ref=Ref}, Key) ->
     case ets:lookup(Ref, Key) of
-        [{Key, Value}] -> Value;
-        false -> {error, not_found}
+        []              -> {error, not_found};
+        [{Key, Value}]  -> Value
     end.
 
 put(#engine{ref=Ref}, Key, Value) ->
@@ -135,3 +136,12 @@ fold_loop(Key, Ref, Fun, Acc0, _N0, #fold_options{end_key=Key}, values) ->
     end;
 fold_loop(_Key, _Ref, _Fun, Acc, _N, _Opts, _Type) ->
     Acc.
+
+
+%% @doc Returns true if this backend contains any values; otherwise returns false.
+-spec is_empty(engine()) -> boolean() | {error, term()}.
+is_empty(#engine{ref=Ref}) ->
+    case ets:info(Ref, size) of
+        undefined   -> true;
+        Size        -> Size =:= 0
+    end.

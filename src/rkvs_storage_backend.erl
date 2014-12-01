@@ -8,7 +8,6 @@
 
 -include("rkvs.hrl").
 
--type engine() :: #engine{}.
 -type write_ops() :: [{put, Key :: binary(), Value :: any()} |
                       {delete, Key :: binary()} |
                       clear].
@@ -21,8 +20,7 @@
                          {max, integer()}].
 
 
--export_type([engine/0,
-              write_ops/0,
+-export_type([write_ops/0,
               kv/0,
               kvs/0,
               fold_options/0]).
@@ -84,3 +82,7 @@
                     Options :: fold_options()) ->
     AccOut :: any()
     | {error, Reason :: any()}.
+
+-callback is_empty(Engine :: engine()) ->
+    boolean()
+    | {error, term()}.

@@ -12,3 +12,6 @@
 -record(fold_options, {start_key=first,
                        end_key=nil,
                        max=0}).
+
+-type engine() :: #engine{}.
+-export_type([engine/0]).

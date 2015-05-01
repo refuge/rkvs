@@ -109,7 +109,7 @@ clear_range(Engine, Start, End, Max) ->
     write_batch(Engine, Ops).
 
 fold_keys(#engine{ref=Ref}, Fun, Acc0, Opts) ->
-    FillCache = proplists:get_value(fill_cache, Opts, false),
+    FillCache = proplists:get_value(fill_cache, Opts, true),
     {ok, Itr} = eleveldb:iterator(Ref, [{fill_cache, FillCache}], keys_only),
     do_fold(Itr, Fun, Acc0, rkvs_util:fold_options(Opts, #fold_options{})).
 

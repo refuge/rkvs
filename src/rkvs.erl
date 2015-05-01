@@ -26,7 +26,9 @@
                          {end_key, key()} |
                          {gt, key()} | {gte, key()} |
                          {lt, key()} | {lte, key()} |
-                         {max, integer()}].
+                         {max, integer()} |
+                         {fill_cache, true | false}].
+
 -export_type([key/0, keys/0,
              value/0,
              kvs/0,

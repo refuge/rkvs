@@ -19,7 +19,7 @@
 
 
 <pre><code>
-fold_options() = [{start_key, <a href="#type-key">key()</a>} | {end_key, <a href="#type-key">key()</a>} | {gt, <a href="#type-key">key()</a>} | {gte, <a href="#type-key">key()</a>} | {lt, <a href="#type-key">key()</a>} | {lte, <a href="#type-key">key()</a>} | {max, integer()}]
+fold_options() = [{start_key, <a href="#type-key">key()</a>} | {end_key, <a href="#type-key">key()</a>} | {gt, <a href="#type-key">key()</a>} | {gte, <a href="#type-key">key()</a>} | {lt, <a href="#type-key">key()</a>} | {lte, <a href="#type-key">key()</a>} | {max, integer()} | {fill_cache, true | false}]
 </code></pre>
 
 

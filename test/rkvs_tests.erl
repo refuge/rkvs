@@ -30,7 +30,7 @@
 	  end)()).
 
 backends() ->
-    [rkvs_ets, rkvs_leveldb, rkvs_rocksdb].
+    [rkvs_ets, rkvs_leveldb, rkvs_rocksdb, rkvs_hanoidb].
 
 basic_test() ->
     lists:foreach(fun(Backend) ->

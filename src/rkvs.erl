@@ -24,6 +24,8 @@
                     | {delete, key(), value()}].
 -type fold_options() :: [{start_key, key()} |
                          {end_key, key()} |
+                         {gt, key()} | {gte, key()} |
+                         {lt, key()} | {lte, key()} |
                          {max, integer()}].
 -export_type([key/0, keys/0,
              value/0,
@@ -85,11 +87,24 @@ clear_range(#engine{mod=Mod}=Engine, Start, End, Max) ->
     Mod:clear_range(Engine, Start, End, Max).
 
 %% @doc fold all keys with a function
+%% same parameters as in the fold function.
 -spec fold_keys(engine(), fun(), any(), fold_options()) -> any() | {error, term()}.
 fold_keys(#engine{mod=Mod}=Engine, Fun, Acc0, Opts) ->
     Mod:fold_keys(Engine, Fun, Acc0, Opts).
 
 %% @doc fold all K/Vs with a function
+%% Additionnaly you can pass the following options:
+%% <ul>
+%% <li>'gt', (greater than), 'gte' (greather than or equal): define the lower
+%% bound of the range to fold. Only the records where the key is greater (or
+%% equal to) will be given to the function.</li>
+%% <li>'lt' (less than), 'lte' (less than or equal): define the higher bound
+%% of the range to fold. Only the records where the key is less than (or equal
+%% to) will be given to the function</li>
+%% <li>'start_key', 'end_key', legacy to 'gte', 'lte'</li>
+%% <li>'max' (default=0), the maximum of records to fold before returning the
+%% resut</li>
+%% </ul>
 -spec fold(engine(), function(), any(), fold_options()) ->
     any() | {error, term()}.
 fold(#engine{mod=Mod}=Engine, Fun, Acc0, Opts) ->

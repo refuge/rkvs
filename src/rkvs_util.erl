@@ -13,11 +13,23 @@
 fold_options([], Options) ->
     Options;
 fold_options([{start_key, Start} | Rest], Options)
-        when is_binary(Start) or (Start =:= first) ->
-    fold_options(Rest, Options#fold_options{start_key=Start});
+  when is_binary(Start) or (Start =:= first) ->
+    fold_options(Rest, Options#fold_options{gte=Start});
 fold_options([{end_key, End} | Rest], Options)
-        when is_binary(End) or (End == nil) ->
-    fold_options(Rest, Options#fold_options{end_key=End});
+  when is_binary(End) or (End == nil) ->
+    fold_options(Rest, Options#fold_options{lte=End});
+fold_options([{gt, GT} | Rest], Options)
+  when is_binary(GT) or (GT =:= first) ->
+    fold_options(Rest, Options#fold_options{gt=GT});
+fold_options([{gte, GT} | Rest], Options)
+  when is_binary(GT) or (GT =:= first) ->
+    fold_options(Rest, Options#fold_options{gte=GT});
+fold_options([{lt, LT} | Rest], Options)
+  when is_binary(LT) or (LT == nil) ->
+    fold_options(Rest, Options#fold_options{lt=LT});
+fold_options([{lte, LT} | Rest], Options)
+  when is_binary(LT) or (LT == nil) ->
+    fold_options(Rest, Options#fold_options{lte=LT});
 fold_options([{max, Max} | Rest], Options) ->
     fold_options(Rest, Options#fold_options{max=Max});
 fold_options([_ | Rest], Options) ->

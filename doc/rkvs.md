@@ -14,24 +14,12 @@
 
 
 
-### <a name="type-engine">engine()</a> ###
-
-
-
-<pre><code>
-engine() = #engine{}
-</code></pre>
-
-
-
-
-
 ### <a name="type-fold_options">fold_options()</a> ###
 
 
 
 <pre><code>
-fold_options() = [{start_key, <a href="#type-key">key()</a>} | {end_key, <a href="#type-key">key()</a>} | {max, integer()}]
+fold_options() = [{start_key, <a href="#type-key">key()</a>} | {end_key, <a href="#type-key">key()</a>} | {gt, <a href="#type-key">key()</a>} | {gte, <a href="#type-key">key()</a>} | {lt, <a href="#type-key">key()</a>} | {lte, <a href="#type-key">key()</a>} | {max, integer()}]
 </code></pre>
 
 
@@ -100,7 +88,20 @@ value() = term()
 ## Function Index ##
 
 
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#clear-2">clear/2</a></td><td>delete the value associated to the key.</td></tr><tr><td valign="top"><a href="#clear_range-4">clear_range/4</a></td><td>delete all K/Vs in a range.</td></tr><tr><td valign="top"><a href="#close-1">close/1</a></td><td>close a storage.</td></tr><tr><td valign="top"><a href="#contains-2">contains/2</a></td><td>is the key exists in the storage.</td></tr><tr><td valign="top"><a href="#destroy-1">destroy/1</a></td><td>close a storage and remove all the data.</td></tr><tr><td valign="top"><a href="#fold-4">fold/4</a></td><td>fold all K/Vs with a function.</td></tr><tr><td valign="top"><a href="#fold_keys-4">fold_keys/4</a></td><td>fold all keys with a function.</td></tr><tr><td valign="top"><a href="#get-2">get/2</a></td><td>get the value associated to the key.</td></tr><tr><td valign="top"><a href="#open-2">open/2</a></td><td>open a storage, amd pass options to the backend.</td></tr><tr><td valign="top"><a href="#put-3">put/3</a></td><td>store the value associated to the key.</td></tr><tr><td valign="top"><a href="#scan-4">scan/4</a></td><td>retrieve a list of Key/Value in a range.</td></tr><tr><td valign="top"><a href="#write_batch-2">write_batch/2</a></td><td>do multiple operations on the backend.</td></tr></table>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#clear-2">clear/2</a></td><td>delete the value associated to the key.</td></tr><tr><td valign="top"><a href="#clear_range-4">clear_range/4</a></td><td>delete all K/Vs in a range.</td></tr><tr><td valign="top"><a href="#close-1">close/1</a></td><td>close a storage.</td></tr><tr><td valign="top"><a href="#contains-2">contains/2</a></td><td>is the key exists in the storage.</td></tr><tr><td valign="top"><a href="#destroy-1">destroy/1</a></td><td>close a storage and remove all the data.</td></tr><tr><td valign="top"><a href="#fold-4">fold/4</a></td><td>fold all K/Vs with a function
+Additionnaly you can pass the following options:
+<ul>
+<li>'gt', (greater than), 'gte' (greather than or equal): define the lower
+bound of the range to fold. Only the records where the key is greater (or
+equal to) will be given to the function.</li>
+<li>'lt' (less than), 'lte' (less than or equal): define the higher bound
+of the range to fold. Only the records where the key is less than (or equal
+to) will be given to the function</li>
+<li>'start_key', 'end_key', legacy to 'gte', 'lte'</li>
+<li>'max' (default=0), the maximum of records to fold before returning the
+resut</li>
+</ul></td></tr><tr><td valign="top"><a href="#fold_keys-4">fold_keys/4</a></td><td>fold all keys with a function
+same parameters as in the fold function.</td></tr><tr><td valign="top"><a href="#get-2">get/2</a></td><td>get the value associated to the key.</td></tr><tr><td valign="top"><a href="#is_empty-1">is_empty/1</a></td><td>Returns true if this backend contains any values; otherwise returns false.</td></tr><tr><td valign="top"><a href="#open-2">open/2</a></td><td>open a storage, amd pass options to the backend.</td></tr><tr><td valign="top"><a href="#put-3">put/3</a></td><td>store the value associated to the key.</td></tr><tr><td valign="top"><a href="#scan-4">scan/4</a></td><td>retrieve a list of Key/Value in a range.</td></tr><tr><td valign="top"><a href="#write_batch-2">write_batch/2</a></td><td>do multiple operations on the backend.</td></tr></table>
 
 
 <a name="functions"></a>
@@ -173,6 +174,22 @@ fold(Engine::<a href="#type-engine">engine()</a>, Fun::function(), Acc0::any(), 
 <br />
 
 fold all K/Vs with a function
+Additionnaly you can pass the following options:
+
+* 'gt', (greater than), 'gte' (greather than or equal): define the lower
+bound of the range to fold. Only the records where the key is greater (or
+equal to) will be given to the function.
+
+* 'lt' (less than), 'lte' (less than or equal): define the higher bound
+of the range to fold. Only the records where the key is less than (or equal
+to) will be given to the function
+
+* 'start_key', 'end_key', legacy to 'gte', 'lte'
+
+* 'max' (default=0), the maximum of records to fold before returning the
+resut
+
+
 <a name="fold_keys-4"></a>
 
 ### fold_keys/4 ###
@@ -184,6 +201,7 @@ fold_keys(Engine::<a href="#type-engine">engine()</a>, Fun::function(), Acc0::an
 <br />
 
 fold all keys with a function
+same parameters as in the fold function.
 <a name="get-2"></a>
 
 ### get/2 ###
@@ -195,6 +213,17 @@ get(Engine::<a href="#type-engine">engine()</a>, Key::<a href="#type-key">key()<
 <br />
 
 get the value associated to the key
+<a name="is_empty-1"></a>
+
+### is_empty/1 ###
+
+
+<pre><code>
+is_empty(Engine::<a href="#type-engine">engine()</a>) -&gt; boolean() | {error, term()}
+</code></pre>
+<br />
+
+Returns true if this backend contains any values; otherwise returns false.
 <a name="open-2"></a>
 
 ### open/2 ###

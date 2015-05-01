@@ -94,8 +94,8 @@ scan(Engine, Start, End, Max) ->
     AccFun = fun({K, V}, Acc) ->
             [{K, V} | Acc]
     end,
-    AccOut = fold(Engine, AccFun, [], [{start_key, Start},
-                                       {end_key, End},
+    AccOut = fold(Engine, AccFun, [], [{gte, Start},
+                                       {lte, End},
                                        {max, Max}]),
     lists:reverse(AccOut).
 
@@ -103,8 +103,8 @@ clear_range(Engine, Start, End, Max) ->
     AccFun = fun(K, Acc) ->
             [{delete, K} | Acc]
     end,
-    Ops = fold_keys(Engine, AccFun, [], [{start_key, Start},
-                                         {end_key, End},
+    Ops = fold_keys(Engine, AccFun, [], [{gte, Start},
+                                         {lte, End},
                                          {max, Max}]),
     write_batch(Engine, Ops).
 
@@ -120,10 +120,23 @@ fold(#engine{ref=Ref}, Fun, Acc0, Opts) ->
 
 %% private
 
-
-do_fold(Itr, Fun, Acc0, #fold_options{start_key=Start}=Opts) ->
+do_fold(Itr, Fun, Acc0, #fold_options{gt=Start}=Opts)
+  when Start /= nil ->
     try
-        fold_loop(eleveldb:iterator_move(Itr, Start), Itr, Fun, Acc0, 0, Opts)
+        case eleveldb:iterator_move(Itr, Start) of
+            {error, iterator_closed} -> Acc0;
+            {error, invalid_iterator} -> Acc0;
+            Next ->
+                fold_loop(eleveldb:iterator_move(Itr, prefetch), Itr, Fun,
+                          Acc0, 0, Opts)
+        end
+    after
+        eleveldb:iterator_close(Itr)
+    end;
+do_fold(Itr, Fun, Acc0, #fold_options{gte=Start}=Opts) ->
+    try
+        fold_loop(eleveldb:iterator_move(Itr, Start), Itr, Fun,
+                  Acc0, 0, Opts)
     after
         eleveldb:iterator_close(Itr)
     end.
@@ -132,8 +145,29 @@ fold_loop({error, iterator_closed}, _Itr, _Fun, Acc0, _N, _Opts) ->
     throw({iterator_closed, Acc0});
 fold_loop({error, invalid_iterator}, _Itr, _Fun, Acc0, _N, _Opts) ->
     Acc0;
-fold_loop({ok, K}, Itr, Fun, Acc0, N0, #fold_options{end_key=End, max=Max}=Opts)
+fold_loop({ok, K}=KT, Itr, Fun, Acc0, N0, #fold_options{lt=End}=Opts)
+  when End /= nil, K < End ->
+    fold_loop1(KT, Itr, Fun, Acc0, N0, Opts);
+fold_loop({ok, K}=KT, Itr, Fun, Acc0, N0, #fold_options{lte=End}=Opts)
          when End =:= nil orelse K < End ->
+    fold_loop1(KT, Itr, Fun, Acc0, N0, Opts);
+fold_loop({ok, K}, _Itr, Fun, Acc0, _N,  #fold_options{lt=nil, lte=K}) ->
+    Fun(K, Acc0);
+fold_loop({ok, _K}, _Itr, _Fun, Acc0, _N, _Opts) ->
+    Acc0;
+fold_loop({ok, K, _V}=KV, Itr, Fun, Acc0, N0, #fold_options{lt=End}=Opts)
+  when End /= nil orelse K < End ->
+    fold_loop1(KV, Itr, Fun, Acc0, N0, Opts);
+fold_loop({ok, K, _V}=KV, Itr, Fun, Acc0, N0, #fold_options{lte=End}=Opts)
+  when End =:= nil orelse K < End ->
+    fold_loop1(KV, Itr, Fun, Acc0, N0, Opts);
+fold_loop({ok, K, V}, _Itr, Fun, Acc0, _N, #fold_options{lt=nil, lte=K}) ->
+    Fun({K, dec(V)}, Acc0);
+fold_loop({ok, _K, _V}, _Itr, _Fun, Acc0, _N, _Opts) ->
+    Acc0.
+
+
+fold_loop1({ok, K}, Itr, Fun, Acc0, N0, #fold_options{max=Max}=Opts) ->
     Acc = Fun(K, Acc0),
     N = N0 + 1,
     if ((Max =:=0) orelse (N < Max)) ->
@@ -142,27 +176,16 @@ fold_loop({ok, K}, Itr, Fun, Acc0, N0, #fold_options{end_key=End, max=Max}=Opts)
         true ->
             Acc
     end;
-fold_loop({ok, K}, _Itr, Fun, Acc0, _N,  #fold_options{end_key=K}) ->
-    Fun(K, Acc0);
-fold_loop({ok, _K}, _Itr, _Fun, Acc0, _N, _Opts) ->
-    Acc0;
-fold_loop({ok, K, V}, Itr, Fun, Acc0, N0, #fold_options{end_key=End,
-                                                        max=Max}=Opts)
-        when End =:= nil orelse K < End ->
+fold_loop1({ok, K, V}, Itr, Fun, Acc0, N0, #fold_options{max=Max}=Opts) ->
     Acc = Fun({K, dec(V)}, Acc0),
     N = N0 + 1,
-    if ((Max =:= 0) orelse (N < Max)) ->
-            fold_loop(eleveldb:iterator_move(Itr, prefetch), Itr, Fun, Acc,
-                      N, Opts);
+    if
+        ((Max =:= 0) orelse (N < Max)) ->
+            fold_loop(eleveldb:iterator_move(Itr, prefetch), Itr, Fun, Acc, N,
+                      Opts);
         true ->
             Acc
-    end;
-fold_loop({ok, K, V}, _Itr, Fun, Acc0, _N, #fold_options{end_key=K}) ->
-    Fun({K, dec(V)}, Acc0);
-fold_loop({ok, _K, _V}, _Itr, _Fun, Acc0, _N, _Opts) ->
-    Acc0.
-
-
+    end.
 
 enc(T) ->
     term_to_binary(T).

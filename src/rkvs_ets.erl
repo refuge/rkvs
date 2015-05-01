@@ -70,8 +70,8 @@ scan(Engine, Start, End, Max) ->
     AccFun = fun({K, V}, Acc) ->
             [{K, V} | Acc]
     end,
-    AccOut = fold(Engine, AccFun, [], [{start_key, Start},
-                                       {end_key, End},
+    AccOut = fold(Engine, AccFun, [], [{gte, Start},
+                                       {lte, End},
                                        {max, Max}]),
     lists:reverse(AccOut).
 
@@ -79,8 +79,8 @@ clear_range(Engine, Start, End, Max) ->
     AccFun = fun(K, Acc) ->
             [{delete, K} | Acc]
     end,
-    Ops = fold_keys(Engine, AccFun, [], [{start_key, Start},
-                                         {end_key, End},
+    Ops = fold_keys(Engine, AccFun, [], [{gte, Start},
+                                         {lte, End},
                                          {max, Max}]),
     write_batch(Engine, Ops).
 
@@ -92,28 +92,60 @@ fold(#engine{ref=Ref}, Fun, Acc0, Opts) ->
     do_fold(Ref, Fun, Acc0, rkvs_util:fold_options(Opts, #fold_options{}),
             values).
 
-do_fold(Ref, Fun, Acc0, #fold_options{start_key=Start}=Opts, Type) ->
-    case Start of
-        first ->
-            %% if first start with the first key if any
-            fold_loop(ets:first(Ref), Ref, Fun, Acc0, 0, Opts, Type);
-        _ ->
-            %% does the key exist ?, if true, start with it, else start
-            %% with the next one if any.
-            case ets:member(Ref, Start) of
-                true ->
-                    fold_loop(Start, Ref, Fun, Acc0, 0, Opts, Type);
-                false ->
-                    fold_loop(ets:next(Ref, Start), Ref, Fun, Acc0, 0, Opts,
-                              Type)
-            end
-    end.
+do_fold(Ref, Fun, Acc0, #fold_options{gt=GT, gte=GTE}=Opts, Type) ->
+    %% define start key and the precondition
+    {Start, GType} = case {GT, GTE} of
+                        {nil, nil} -> {first, gte};
+                        {nil, K} when K /= nil -> {K, gte};
+                        {K, _} -> {K, gt}
+                    end,
+
+    FoldKey = case Start of
+                  first when GType =:= gte ->
+                      %% if first and condition is greater or equal then start
+                      %% with the first key if any.
+                      ets:first(Ref);
+                  first ->
+                      %% if first and condtion is greater then start with the
+                      %% next key after first if any.
+                      case ets:first(Ref) of
+                          'end_of_table' -> Acc0;
+                          FirstKey -> ets:next(Ref, FirstKey)
+                      end;
+                  _ when GType =:= gte ->
+                      %% does the key exists ? if true, starts with it, else
+                      %% start with the next one if any
+                      case ets:member(Ref, Start) of
+                          true -> Start;
+                          false -> ets:next(Ref, Start)
+                      end;
+                  _ ->
+                      %% if condition is greater, just start with the next
+                      %% one.
+                      ets:next(Ref, Start)
+              end,
+    fold_loop(FoldKey, Ref, Fun, Acc0, 0, Opts, Type).
+
 
 fold_loop('$end_of_table', _Ref, _Fun, Acc, _N, _Opts, _Type) ->
     Acc;
-fold_loop(Key, Ref, Fun, Acc0, N0, #fold_options{end_key=End, max=Max}=Opts,
-          Type) when End =:= nil orelse Key < End ->
+fold_loop(Key, Ref, Fun, Acc0, N0, #fold_options{lt=End}=Opts, Type)
+  when End /= nil orelse Key < End ->
+    fold_loop1(Key, Ref, Fun, Acc0, N0, Opts, Type);
+fold_loop(Key, Ref, Fun, Acc0, N0, #fold_options{lte=End}=Opts, Type)
+  when End =:= nil orelse Key < End ->
+    fold_loop1(Key, Ref, Fun, Acc0, N0, Opts, Type);
+fold_loop(Key, _Ref, Fun, Acc0, _N0, #fold_options{lt=nil, lte=Key}, keys_only) ->
+    Fun(Key, Acc0);
+fold_loop(Key, Ref, Fun, Acc0, _N0, #fold_options{lt=nil, lte=Key}, values) ->
+    case ets:lookup(Ref, Key) of
+        [] -> Acc0;
+        [{Key, Val}] -> Fun({Key, Val}, Acc0)
+    end;
+fold_loop(_Key, _Ref, _Fun, Acc, _N, _Opts, _Type) ->
+    Acc.
 
+fold_loop1(Key, Ref, Fun, Acc0, N0, #fold_options{max=Max}=Opts, Type) ->
     {Acc, N} = case Type of
         keys_only -> {Fun(Key, Acc0), N0 + 1};
         values ->
@@ -126,16 +158,7 @@ fold_loop(Key, Ref, Fun, Acc0, N0, #fold_options{end_key=End, max=Max}=Opts,
             fold_loop(ets:next(Ref, Key), Ref, Fun, Acc, N, Opts, Type);
         true ->
             Acc
-    end;
-fold_loop(Key, _Ref, Fun, Acc0, _N0, #fold_options{end_key=Key}, keys_only) ->
-    Fun(Key, Acc0);
-fold_loop(Key, Ref, Fun, Acc0, _N0, #fold_options{end_key=Key}, values) ->
-    case ets:lookup(Ref, Key) of
-        [] -> Acc0;
-        [{Key, Val}] -> Fun({Key, Val}, Acc0)
-    end;
-fold_loop(_Key, _Ref, _Fun, Acc, _N, _Opts, _Type) ->
-    Acc.
+    end.
 
 
 %% @doc Returns true if this backend contains any values; otherwise returns false.

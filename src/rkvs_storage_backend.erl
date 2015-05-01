@@ -17,6 +17,10 @@
 
 -type fold_options() :: [{start_key, binary()} |
                          {end_key, binary()} |
+                         {gt, binary()} |
+                         {gte, binary()} |
+                         {lt, binary()} |
+                         {lte, binary()} |
                          {max, integer()}].
 
 

@@ -100,6 +100,8 @@ to) will be given to the function</li>
 <li>'start_key', 'end_key', legacy to 'gte', 'lte'</li>
 <li>'max' (default=0), the maximum of records to fold before returning the
 resut</li>
+<li>'fill_cache' (default is true): should be the data cached in
+memory?</li>
 </ul></td></tr><tr><td valign="top"><a href="#fold_keys-4">fold_keys/4</a></td><td>fold all keys with a function
 same parameters as in the fold function.</td></tr><tr><td valign="top"><a href="#get-2">get/2</a></td><td>get the value associated to the key.</td></tr><tr><td valign="top"><a href="#is_empty-1">is_empty/1</a></td><td>Returns true if this backend contains any values; otherwise returns false.</td></tr><tr><td valign="top"><a href="#open-2">open/2</a></td><td>open a storage, amd pass options to the backend.</td></tr><tr><td valign="top"><a href="#put-3">put/3</a></td><td>store the value associated to the key.</td></tr><tr><td valign="top"><a href="#scan-4">scan/4</a></td><td>retrieve a list of Key/Value in a range.</td></tr><tr><td valign="top"><a href="#write_batch-2">write_batch/2</a></td><td>do multiple operations on the backend.</td></tr></table>
 
@@ -188,6 +190,9 @@ to) will be given to the function
 
 * 'max' (default=0), the maximum of records to fold before returning the
 resut
+
+* 'fill_cache' (default is true): should be the data cached in
+memory?
 
 
 <a name="fold_keys-4"></a>

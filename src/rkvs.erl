@@ -106,6 +106,8 @@ fold_keys(#engine{mod=Mod}=Engine, Fun, Acc0, Opts) ->
 %% <li>'start_key', 'end_key', legacy to 'gte', 'lte'</li>
 %% <li>'max' (default=0), the maximum of records to fold before returning the
 %% resut</li>
+%% <li>'fill_cache' (default is true): should be the data cached in
+%% memory?</li>
 %% </ul>
 -spec fold(engine(), function(), any(), fold_options()) ->
     any() | {error, term()}.

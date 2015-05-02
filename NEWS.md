@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 - 2015/01/03
+## 0.2.0 - 2015/05/03
 
 - add rocksdb backend
 - add hanoidb backend

@@ -40,7 +40,7 @@ Name = "mydb",
 {ok, Engine} = rkvs:open(Name, [{backend, rkvs_leveldb}]).
 '''
 
-2 backends are available:
+5 backends are available:
 
 - `rkvs_ets': ETS backend
 - `rkvs_leveldb': LevelDB backend using [eleveldb](https://github.com/basho/eleveldb) from Basho.

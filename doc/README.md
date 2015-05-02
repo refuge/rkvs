@@ -2,16 +2,35 @@
 
 # rkvs - Simple Erlang Key/Values interface #
 
-Copyright (c) 2014 Benoît Chesneau.
+Copyright (c) 2014-2015 Benoît Chesneau.
 
-__Version:__ 0.1.0
+__Version:__ 0.2.0
 
 rkvs is a simple Key-Value database interface. It offers for now a frontend to
-ets and leveldb.
+the following K/V storages: ets, leveldb, rocksdb, hanoidb, bitcask.
 
 ## Example of usage
 
-### Open or create a database:
+### Enable a backend
+
+To enable one of the backend, add one of the following line to your rebar or
+make the depency availavle in ERL_LIBS:
+
+```
+    {leveldb, ".*", {git, "https://github.com/basho/eleveldb.git",
+                     {tag, "2.1.0"}}},
+
+    {erocksdb, ".*", {git, "https://github.com/leo-project/erocksdb.git",
+                      {branch, "develop"}}},
+
+    {hanoidb, ".*", {git, "https://github.com/krestenkrab/hanoidb.git",
+                     "4e82d5f81ab087f038bfd13354ff48ee9113f459"}},
+
+    {bitcask, ".*", {git, "https://github.com/basho/bitcask.git",
+                     {tag, "2.0.0"}}},
+```
+
+### Opecreate a database:
 
 ```
 Name = "mydb",
@@ -124,6 +143,7 @@ make test
 
 <table width="100%" border="0" summary="list of modules">
 <tr><td><a href="rkvs.md" class="module">rkvs</a></td></tr>
+<tr><td><a href="rkvs_bitcask.md" class="module">rkvs_bitcask</a></td></tr>
 <tr><td><a href="rkvs_ets.md" class="module">rkvs_ets</a></td></tr>
 <tr><td><a href="rkvs_hanoidb.md" class="module">rkvs_hanoidb</a></td></tr>
 <tr><td><a href="rkvs_leveldb.md" class="module">rkvs_leveldb</a></td></tr>

@@ -1,12 +1,12 @@
 
 
-# Module rkvs_hanoidb #
+# Module rkvs_bitcask #
 * [Description](#description)
 * [Function Index](#index)
 * [Function Details](#functions)
 
 
-hanoidb backend.
+bitcask backend.
 __Behaviours:__ [`rkvs_storage_backend`](rkvs_storage_backend.md).
 <a name="description"></a>
 
@@ -15,7 +15,7 @@ __Behaviours:__ [`rkvs_storage_backend`](rkvs_storage_backend.md).
 
 
 You can pass any options from
-[hanoidb](https://github.com/bkrestenkra/erocksdb)
+[bitcask](https://github.com/basho/bitcask)
 when opening the database using the db_opts settings.
 
 
@@ -70,14 +70,14 @@ Optionnaly you can pass a db_dir option to set the path of the database.<a name=
 
 ### fold/4 ###
 
-`fold(Engine, Fun, Acc0, Opts) -> any()`
+`fold(Engine, Fun, Acc, Opts) -> any()`
 
 
 <a name="fold_keys-4"></a>
 
 ### fold_keys/4 ###
 
-`fold_keys(Engine, Fun, Acc0, Opts) -> any()`
+`fold_keys(Engine, Fun, Acc, Opts) -> any()`
 
 
 <a name="get-2"></a>
@@ -119,6 +119,6 @@ Optionnaly you can pass a db_dir option to set the path of the database.<a name=
 
 ### write_batch/2 ###
 
-`write_batch(Engine, Ops0) -> any()`
+`write_batch(Engine, Ops) -> any()`
 
 

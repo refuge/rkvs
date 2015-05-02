@@ -240,6 +240,20 @@ open(Name::binary(), Options::list()) -&gt; {ok, <a href="#type-engine">engine()
 <br />
 
 open a storage, amd pass options to the backend.
+The following optinos can be used:
+
+* 'backend': default is rkvs_ets, folowin backend are provided in rkvs:
+rkvs_ets, rkvs_leveldb, rkvs_rocksdb, rkvs_hanoidb, rvs_bitcask.
+
+* 'db_opts': backend options, refers to the backend doc for them
+
+* 'key_encoding': to encode the key. defautl is raw (binary). can be
+term, {term, Opts} or sext
+
+* 'value_encoding': to encode the value. defautl is term. can be
+term, {term, Opts} or sext
+
+
 <a name="put-3"></a>
 
 ### put/3 ###

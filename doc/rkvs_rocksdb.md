@@ -6,7 +6,7 @@
 * [Function Details](#functions)
 
 
-erocksdb backendi.
+erocksdb backend.
 __Behaviours:__ [`rkvs_storage_backend`](rkvs_storage_backend.md).
 <a name="description"></a>
 
@@ -15,7 +15,7 @@ __Behaviours:__ [`rkvs_storage_backend`](rkvs_storage_backend.md).
 
 
 You can pass any options from
-[erocksdb](https://github.com/basho/erocksdb/blob/develop/src/erocksdb.erl)
+[erocksdb](https://github.com/leo-project/erocksdb)
 when opening the database using the db_opts settings.
 
 

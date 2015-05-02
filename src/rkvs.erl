@@ -35,10 +35,20 @@
              ops_kvs/0]).
 
 %% @doc open a storage, amd pass options to the backend.
+%% The following optinos can be used:
+%% <ul>
+%% <li>'backend': default is rkvs_ets, folowin backend are provided in rkvs:
+%% rkvs_ets, rkvs_leveldb, rkvs_rocksdb, rkvs_hanoidb, rvs_bitcask.</li>
+%% <li>'db_opts': backend options, refers to the backend doc for them</li>
+%% <li>'key_encoding': to encode the key. defautl is raw (binary). can be
+%% term, {term, Opts} or sext</li>
+%% <li>'value_encoding': to encode the value. defautl is term. can be
+%% term, {term, Opts} or sext</li>
+%% </ul>
 -spec open(Name::binary(), Options::list()) ->
     {ok, engine()} | {error, any()}.
 open(Name, Options) ->
-    Mod = proplists:get_value(backend, Options, rkvs_leveldb),
+    Mod = proplists:get_value(backend, Options, rkvs_ets),
     Mod:open(Name, Options).
 
 

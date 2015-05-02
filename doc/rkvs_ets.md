@@ -6,7 +6,8 @@
 * [Function Details](#functions)
 
 
-ETS backend.
+ETS backend
+Note: value encoding is ignored since everything is encoded as a term.
 __Behaviours:__ [`rkvs_storage_backend`](rkvs_storage_backend.md).
 <a name="index"></a>
 

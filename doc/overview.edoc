@@ -33,7 +33,7 @@ make the depency availavle in ERL_LIBS:
                      {tag, "2.0.0"}}},
 '''
 
-### Opecreate a database:
+### Create a database:
 
 ```
 Name = "mydb",
@@ -44,6 +44,10 @@ Name = "mydb",
 
 - `rkvs_ets': ETS backend
 - `rkvs_leveldb': LevelDB backend using [eleveldb](https://github.com/basho/eleveldb) from Basho.
+- `rkvs_rocksdb': [rocksdb](http://rocksdb.org) backend using
+  [erocksdb](https://github.com/leo-project/erocksdb).
+- `rkvs_hanoidb': [hanoidb](https://github.com/krestenkrab/hanoidb) backend
+- `rkvs_bitcask': [bitcask](https://github.com/basho/bitcask) backend
 
 ### Store a values
 

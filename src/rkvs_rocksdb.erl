@@ -4,10 +4,10 @@
 %% License, v. 2.0. If a copy of the MPL was not distributed with this
 %% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-%% @doc erocksdb backendi
+%% @doc erocksdb backend
 %%
 %% You can pass any options from
-%% [erocksdb](https://github.com/basho/erocksdb/blob/develop/src/erocksdb.erl)
+%% [erocksdb](https://github.com/leo-project/erocksdb)
 %% when opening the database using the db_opts settings.
 %%
 %% Optionnaly you can pass a db_dir option to set the path of the database.
@@ -122,23 +122,26 @@ fold(#engine{ref=Ref}, Fun, Acc0, Opts) ->
 
 %% private
 
-do_fold(Itr, Fun, Acc0, #fold_options{gt=Start}=Opts)
-  when Start /= nil ->
+do_fold(Itr, Fun, Acc0, #fold_options{gt=GT, gte=GTE}=Opts) ->
+    {Start, Inclusive} = case {GT, GTE} of
+                      {nil, nil} -> {first, true};
+                      {first, _} -> {first, false};
+                      {K, _} when is_binary(K) -> {K, false};
+                      {_, K} -> {K, true}
+                  end,
+
     try
         case erocksdb:iterator_move(Itr, Start) of
-            {error, iterator_closed} -> Acc0;
-            {error, invalid_iterator} -> Acc0;
-            Next ->
+            {ok, Start} when Inclusive /= true ->
                 fold_loop(erocksdb:iterator_move(Itr, next), Itr, Fun,
-                          Acc0, 0, Opts)
+                          Acc0, 0, Opts);
+            {ok, Start, _V}  when Inclusive /= true ->
+                fold_loop(erocksdb:iterator_move(Itr, next), Itr, Fun,
+                          Acc0, 0, Opts);
+            Next ->
+                fold_loop(Next, Itr, Fun, Acc0, 0, Opts)
+
         end
-    after
-        erocksdb:iterator_close(Itr)
-    end;
-do_fold(Itr, Fun, Acc0, #fold_options{gte=Start}=Opts) ->
-    try
-        fold_loop(erocksdb:iterator_move(Itr, Start), Itr, Fun,
-                  Acc0, 0, Opts)
     after
         erocksdb:iterator_close(Itr)
     end.

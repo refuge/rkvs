@@ -121,27 +121,31 @@ fold(#engine{ref=Ref}, Fun, Acc0, Opts) ->
 
 
 %% private
+do_fold(Itr, Fun, Acc0, #fold_options{gt=GT, gte=GTE}=Opts) ->
+    {Start, Inclusive} = case {GT, GTE} of
+                      {nil, nil} -> {first, true};
+                      {first, _} -> {first, false};
+                      {K, _} when is_binary(K) -> {K, false};
+                      {_, K} -> {K, true}
+                  end,
 
-do_fold(Itr, Fun, Acc0, #fold_options{gt=Start}=Opts)
-  when Start /= nil ->
+
     try
         case eleveldb:iterator_move(Itr, Start) of
-            {error, iterator_closed} -> Acc0;
-            {error, invalid_iterator} -> Acc0;
-            Next ->
+            {ok, Start} when Inclusive /= true ->
                 fold_loop(eleveldb:iterator_move(Itr, prefetch), Itr, Fun,
-                          Acc0, 0, Opts)
+                          Acc0, 0, Opts);
+            {ok, Start, _V}  when Inclusive /= true ->
+                fold_loop(eleveldb:iterator_move(Itr, prefetch), Itr, Fun,
+                          Acc0, 0, Opts);
+            Next ->
+                fold_loop(Next, Itr, Fun, Acc0, 0, Opts)
+
         end
     after
         eleveldb:iterator_close(Itr)
-    end;
-do_fold(Itr, Fun, Acc0, #fold_options{gte=Start}=Opts) ->
-    try
-        fold_loop(eleveldb:iterator_move(Itr, Start), Itr, Fun,
-                  Acc0, 0, Opts)
-    after
-        eleveldb:iterator_close(Itr)
     end.
+
 
 fold_loop({error, iterator_closed}, _Itr, _Fun, Acc0, _N, _Opts) ->
     throw({iterator_closed, Acc0});

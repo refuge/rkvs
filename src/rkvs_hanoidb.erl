@@ -4,10 +4,10 @@
 %% License, v. 2.0. If a copy of the MPL was not distributed with this
 %% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-%% @doc erocksdb backendi
+%% @doc hanoidb backend
 %%
 %% You can pass any options from
-%% [erocksdb](https://github.com/basho/erocksdb/blob/develop/src/erocksdb.erl)
+%% [hanoidb](https://github.com/bkrestenkra/erocksdb)
 %% when opening the database using the db_opts settings.
 %%
 %% Optionnaly you can pass a db_dir option to set the path of the database.

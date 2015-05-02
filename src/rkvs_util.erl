@@ -9,6 +9,7 @@
 -include("rkvs.hrl").
 
 -export([fold_options/2]).
+-export([enc/3, dec/3]).
 
 fold_options([], Options) ->
     Options;
@@ -34,3 +35,15 @@ fold_options([{max, Max} | Rest], Options) ->
     fold_options(Rest, Options#fold_options{max=Max});
 fold_options([_ | Rest], Options) ->
     fold_options(Rest, Options).
+
+enc(_, V, raw) -> V;
+enc(_, V, term) -> term_to_binary(V);
+enc(_, V, {term, Opts}) -> term_to_binary(V, Opts);
+enc(_, V, sext) -> sext:encode(V);
+enc(T, V, E) -> erlang:error({cannot_encode, [T, V, E]}).
+
+dec(_, V, raw) -> V;
+dec(_, V, term) -> binary_to_term(V);
+dec(_, V, {term, _}) -> binary_to_term(V);
+dec(_, V, sext) -> sext:decode(V);
+dec(T, V, E) -> erlang:error({cannot_decode, [T, V, E]}).

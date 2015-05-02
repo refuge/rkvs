@@ -31,8 +31,12 @@
          fold_keys/4,
          is_empty/1]).
 
+-import(rkvs_util, [enc/3, dec/3]).
+
 -record(fold_st, {useracc,
                   cb,
+                  key_enc,
+                  val_enc,
                   num = 0,
                   max,
                   from = <<>>,
@@ -48,6 +52,8 @@ open(Name, Options) ->
            end,
 
     DbOpts = proplists:get_value(db_opts, Options, [read_write]),
+    KeyEncoding = proplists:get_value(key_encoding, Options, raw),
+    ValueEncoding = proplists:get_value(value_encoding, Options, term),
     case catch bitcask:open(Path, DbOpts) of
         {error, _Reason}=Error -> Error;
         {'EXIT', Reason} -> {error, Reason};
@@ -55,6 +61,8 @@ open(Name, Options) ->
             {ok, #engine{name=Name,
                          mod=?MODULE,
                          ref=Ref,
+                         key_enc=KeyEncoding,
+                         val_enc=ValueEncoding,
                          options=Options}}
     end.
 
@@ -82,24 +90,24 @@ contains(Engine, Key) ->
                                    {max, 1}]).
 
 
-get(#engine{ref=Ref}, Key) ->
-    case catch bitcask:get(Ref, Key) of
-        {ok, Val} -> dec(Val);
+get(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Key) ->
+    case catch bitcask:get(Ref, enc(key, Key, KE)) of
+        {ok, Val} -> dec(value, Val, VE);
         not_found -> {error, not_found};
         {error, _Reason}=Error -> Error;
         {'EXIT', Reason} -> {error, Reason}
     end.
 
 
-put(#engine{ref=Ref}, Key, Value) ->
-    case catch bitcask:put(Ref, Key, enc(Value)) of
+put(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Key, Value) ->
+    case catch bitcask:put(Ref, enc(key, Key, KE), enc(value, Value, VE)) of
         ok -> ok;
         {error, _Reason}=Error -> Error;
         {'EXIT', Reason} -> {error, Reason}
     end.
 
-clear(#engine{ref=Ref}, Key) ->
-    case catch bitcask:delete(Ref, Key) of
+clear(#engine{ref=Ref, key_enc=KE}, Key) ->
+    case catch bitcask:delete(Ref, enc(key, Key, KE)) of
         ok -> ok;
         {error, _Reason}=Error -> Error;
         {'EXIT', Reason} -> {error, Reason}
@@ -138,8 +146,8 @@ clear_range(Engine, Start, End, Max) ->
     write_batch(Engine, Ops).
 
 
-fold_keys(#engine{ref=Ref}, Fun, Acc, Opts) ->
-    FoldAcc = fold_acc(Fun, Acc, Opts),
+fold_keys(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Fun, Acc, Opts) ->
+    FoldAcc = fold_acc(Fun, Acc, KE, VE, Opts),
     case catch bitcask:fold_keys(Ref, fun fold_fun/2, FoldAcc) of
         #fold_st{useracc=UserAcc} -> UserAcc;
         {stop, #fold_st{useracc=UserAcc}} -> UserAcc;
@@ -148,8 +156,8 @@ fold_keys(#engine{ref=Ref}, Fun, Acc, Opts) ->
         _ -> {error, badarg}
     end.
 
-fold(#engine{ref=Ref}, Fun, Acc, Opts) ->
-    FoldAcc = fold_acc(Fun, Acc, Opts),
+fold(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Fun, Acc, Opts) ->
+    FoldAcc = fold_acc(Fun, Acc, KE, VE, Opts),
     case catch bitcask:fold(Ref, fun fold_fun/3, FoldAcc) of
         #fold_st{useracc=UserAcc} -> UserAcc;
         {stop, #fold_st{useracc=UserAcc}} -> UserAcc;
@@ -162,34 +170,40 @@ is_empty(#engine{ref=Ref}) ->
     bitcask:is_empty_estimate(Ref).
 
 
-fold_acc(Fun, Acc, Opts) ->
-    fold_acc(Opts, #fold_st{useracc=Acc, cb=Fun}).
+fold_acc(Fun, Acc, KE, VE, Opts) ->
+    fold_acc(Opts, KE, #fold_st{useracc=Acc, cb=Fun, key_enc=KE, val_enc=VE}).
 
-fold_acc([], St) ->
+fold_acc([], _KE, St) ->
     St;
-fold_acc([{start_key, Start} | Rest], St) ->
-    fold_acc(Rest, St#fold_st{from=start_key(Start), from_inclusive=true});
-fold_acc([{end_key, End} | Rest], St) ->
-    fold_acc(Rest, St#fold_st{to=End, to_inclusive=true});
-fold_acc([{gt, Start} | Rest], St) ->
-    fold_acc(Rest, St#fold_st{from=start_key(Start), from_inclusive=false});
-fold_acc([{gte, Start} | Rest], St) ->
-    fold_acc(Rest, St#fold_st{from=start_key(Start), from_inclusive=true});
-fold_acc([{lt, End} | Rest], St) ->
-    fold_acc(Rest, St#fold_st{to=End, to_inclusive=false});
-fold_acc([{lte, End} | Rest], St) ->
-    fold_acc(Rest, St#fold_st{to=End, to_inclusive=true});
-fold_acc([{max, Max} | Rest], St) ->
-    fold_acc(Rest, St#fold_st{max=Max});
-fold_acc([_ | Rest], St) ->
-    fold_acc(Rest, St).
+fold_acc([{start_key, Start} | Rest], KE, St) ->
+    fold_acc(Rest, KE, St#fold_st{from=start_key(Start, KE),
+                                  from_inclusive=true});
+fold_acc([{end_key, End} | Rest], KE, St) ->
+    fold_acc(Rest, KE, St#fold_st{to=enc(key, End, KE),
+                                  to_inclusive=true});
+fold_acc([{gt, Start} | Rest], KE, St) ->
+    fold_acc(Rest, KE, St#fold_st{from=start_key(Start, KE),
+                              from_inclusive=false});
+fold_acc([{gte, Start} | Rest], KE, St) ->
+    fold_acc(Rest, KE, St#fold_st{from=start_key(Start, KE),
+                                  from_inclusive=true});
+fold_acc([{lt, End} | Rest], KE, St) ->
+    fold_acc(Rest, KE, St#fold_st{to=enc(key, End, KE),
+                                  to_inclusive=false});
+fold_acc([{lte, End} | Rest], KE, St) ->
+    fold_acc(Rest, KE, St#fold_st{to=enc(key, End, KE),
+                                  to_inclusive=true});
+fold_acc([{max, Max} | Rest], KE, St) ->
+    fold_acc(Rest, KE, St#fold_st{max=Max});
+fold_acc([_ | Rest], KE, St) ->
+    fold_acc(Rest, KE, St).
 
 
 
-start_key(first) ->
+start_key(first, _KE) ->
     <<>>;
-start_key(Key) ->
-    Key.
+start_key(Key, KE) ->
+    enc(key, Key, KE).
 
 
 fold_fun(#bitcask_entry{key=K}, #fold_st{from=Start,
@@ -233,7 +247,7 @@ fold_fun1(K, V, #fold_st{to=nil}=St) ->
 fold_fun1(K, V, #fold_st{to=End, to_inclusive=false}=St) when K < End ->
     do_fold({ok, K, V}, St);
 fold_fun1(K, V, #fold_st{to=K, to_inclusive=true}=St) ->
-    {stop, exec_cb({K, dec(V)}, St)};
+    {stop, exec_cb(K, V, St)};
 fold_fun1(K, V, #fold_st{to=End, to_inclusive=true}=St) when K < End ->
     do_fold({ok, K, V}, St);
 fold_fun1(_K, _V, St) ->
@@ -250,23 +264,21 @@ do_fold({ok, K}, St) ->
         true -> {stop, NewSt}
     end;
 do_fold({ok, K, V}, #fold_st{max=0}=St) ->
-    {ok, exec_cb({K, dec(V)}, St)};
+    {ok, exec_cb(K, V, St)};
 do_fold({ok, K, V}, St) ->
-    NewSt = exec_cb({K, dec(V)}, St),
+    NewSt = exec_cb(K, V, St),
     N = NewSt#fold_st.num + 1,
     if
         N < St#fold_st.max -> {ok, NewSt#fold_st{num=N}};
         true -> {stop, NewSt}
     end.
 
-exec_cb(Arg, #fold_st{useracc=Acc, cb=Cb}=St) ->
-    St#fold_st{useracc=Cb(Arg, Acc)}.
+exec_cb(K, #fold_st{useracc=Acc, cb=Cb, key_enc=KE}=St) ->
+    St#fold_st{useracc=Cb(dec(key, K, KE), Acc)}.
 
-enc(T) ->
-    term_to_binary(T).
-
-dec(B) ->
-    binary_to_term(B).
+exec_cb(K, V, #fold_st{useracc=Acc, cb=Cb, key_enc=KE, val_enc=VE}=St) ->
+    NewAcc = Cb({dec(key, K, KE), dec(value, V, VE)}, Acc),
+    St#fold_st{useracc=NewAcc}.
 
 data_directory_cleanup(DirPath) ->
     case file:list_dir(DirPath) of

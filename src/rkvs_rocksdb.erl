@@ -30,6 +30,7 @@
          fold_keys/4,
          is_empty/1]).
 
+-import(rkvs_util, [enc/3, dec/3]).
 
 open(Name, Options) ->
     Path = case proplists:get_value(db_dir, Options) of
@@ -41,11 +42,16 @@ open(Name, Options) ->
     DbOpts = proplists:get_value(db_opts, Options,
                                  [{create_if_missing, true}]),
 
+    KeyEncoding = proplists:get_value(key_encoding, Options, raw),
+    ValueEncoding = proplists:get_value(value_encoding, Options, term),
+
     case erocksdb:open(Path, DbOpts, []) of
         {ok, Ref} ->
             {ok, #engine{name=Name,
                          mod=?MODULE,
                          ref=Ref,
+                         key_enc=KeyEncoding,
+                         val_enc=ValueEncoding,
                          options=Options}};
         Error ->
             Error
@@ -66,28 +72,26 @@ contains(Engine, Key) ->
                                    {end_key, Key},
                                    {max, 1}]).
 
-get(#engine{ref=Ref}, Key) ->
-    case erocksdb:get(Ref, Key, []) of
-        {ok, Val} -> dec(Val);
+get(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Key) ->
+    case erocksdb:get(Ref, enc(key, Key, KE), []) of
+        {ok, Val} -> dec(value, Val, VE);
         not_found -> {error, not_found};
         Error -> Error
     end.
 
-put(#engine{ref=Ref}, Key, Value) ->
-    erocksdb:put(Ref, Key, enc(Value), [{sync, true}]).
+put(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Key, Value) ->
+    erocksdb:put(Ref, enc(key, Key, KE), enc(value, Value, VE), [{sync, true}]).
 
-clear(#engine{ref=Ref}, Key) ->
-    erocksdb:delete(Ref, Key, [{sync, true}]).
+clear(#engine{ref=Ref, key_enc=KE}, Key) ->
+    erocksdb:delete(Ref, enc(key, Key, KE), [{sync, true}]).
 
-
-write_batch(#engine{ref=Ref}, Ops0) ->
+write_batch(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Ops0) ->
     Ops = lists:reverse(lists:foldl(fun
                     ({put, K, V}, Acc) ->
-                        [{put, K, enc(V)} | Acc];
-                    (Op, Acc) ->
-                        [Op | Acc]
+                        [{put, enc(key, K, KE), enc(value, V, VE)} | Acc];
+                    ({delete, K}, Acc) ->
+                        [{delete, enc(key, K, KE)} | Acc]
                 end, [], Ops0)),
-
     erocksdb:write(Ref, Ops, [{sync, true}]).
 
 scan(Engine, Start, End, Max) ->
@@ -108,28 +112,29 @@ clear_range(Engine, Start, End, Max) ->
                                          {max, Max}]),
     write_batch(Engine, Ops).
 
-fold_keys(#engine{ref=Ref}, Fun, Acc0, Opts) ->
+fold_keys(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Fun, Acc0, Opts) ->
     FillCache = proplists:get_value(fill_cache, Opts, true),
     {ok, Itr} = erocksdb:iterator(Ref, [{fill_cache, FillCache}], keys_only),
-    do_fold(Itr, Fun, Acc0, rkvs_util:fold_options(Opts, #fold_options{})).
+    FoldOpts0 = #fold_options{key_enc=KE, val_enc=VE},
+    do_fold(Itr, Fun, Acc0, rkvs_util:fold_options(Opts, FoldOpts0)).
 
 
-fold(#engine{ref=Ref}, Fun, Acc0, Opts) ->
+fold(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Fun, Acc0, Opts) ->
     FillCache = proplists:get_value(fill_cache, Opts, true),
     {ok, Itr} = erocksdb:iterator(Ref, [{fill_cache, FillCache}]),
-    do_fold(Itr, Fun, Acc0, rkvs_util:fold_options(Opts, #fold_options{})).
+    FoldOpts0 = #fold_options{key_enc=KE, val_enc=VE},
+    do_fold(Itr, Fun, Acc0, rkvs_util:fold_options(Opts, FoldOpts0)).
 
 
 %% private
 
-do_fold(Itr, Fun, Acc0, #fold_options{gt=GT, gte=GTE}=Opts) ->
+do_fold(Itr, Fun, Acc0, #fold_options{gt=GT, gte=GTE, key_enc=KE}=Opts) ->
     {Start, Inclusive} = case {GT, GTE} of
                       {nil, nil} -> {first, true};
                       {first, _} -> {first, false};
-                      {K, _} when is_binary(K) -> {K, false};
-                      {_, K} -> {K, true}
+                      {K, _} when is_binary(K) -> {enc(key, K, KE), false};
+                      {_, K} -> {enc(key, K, KE), true}
                   end,
-
     try
         case erocksdb:iterator_move(Itr, Start) of
             {ok, Start} when Inclusive /= true ->
@@ -156,8 +161,8 @@ fold_loop({ok, K}=KT, Itr, Fun, Acc0, N0, #fold_options{lt=End}=Opts)
 fold_loop({ok, K}=KT, Itr, Fun, Acc0, N0, #fold_options{lte=End}=Opts)
          when End =:= nil orelse K < End ->
     fold_loop1(KT, Itr, Fun, Acc0, N0, Opts);
-fold_loop({ok, K}, _Itr, Fun, Acc0, _N,  #fold_options{lt=nil, lte=K}) ->
-    Fun(K, Acc0);
+fold_loop({ok, K}, _Itr, Fun, Acc0, _N,  #fold_options{lt=nil, lte=K}=Opts) ->
+    Fun(dec(key, K, Opts#fold_options.key_enc), Acc0);
 fold_loop({ok, _K}, _Itr, _Fun, Acc0, _N, _Opts) ->
     Acc0;
 fold_loop({ok, K, _V}=KV, Itr, Fun, Acc0, N0, #fold_options{lt=End}=Opts)
@@ -166,14 +171,15 @@ fold_loop({ok, K, _V}=KV, Itr, Fun, Acc0, N0, #fold_options{lt=End}=Opts)
 fold_loop({ok, K, _V}=KV, Itr, Fun, Acc0, N0, #fold_options{lte=End}=Opts)
   when End =:= nil orelse K < End ->
     fold_loop1(KV, Itr, Fun, Acc0, N0, Opts);
-fold_loop({ok, K, V}, _Itr, Fun, Acc0, _N, #fold_options{lt=nil, lte=K}) ->
-    Fun({K, dec(V)}, Acc0);
+fold_loop({ok, K, V}, _Itr, Fun, Acc0, _N, #fold_options{lt=nil, lte=K}=Opts) ->
+    #fold_options{key_enc=KE, val_enc=VE}=Opts,
+    Fun({dec(key, K, KE), dec(value, V, VE)}, Acc0);
 fold_loop({ok, _K, _V}, _Itr, _Fun, Acc0, _N, _Opts) ->
     Acc0.
 
 
 fold_loop1({ok, K}, Itr, Fun, Acc0, N0, #fold_options{max=Max}=Opts) ->
-    Acc = Fun(K, Acc0),
+    Acc = Fun(dec(key, K, Opts#fold_options.key_enc), Acc0),
     N = N0 + 1,
     if ((Max =:=0) orelse (N < Max)) ->
             fold_loop(erocksdb:iterator_move(Itr, next), Itr, Fun, Acc,
@@ -182,7 +188,8 @@ fold_loop1({ok, K}, Itr, Fun, Acc0, N0, #fold_options{max=Max}=Opts) ->
             Acc
     end;
 fold_loop1({ok, K, V}, Itr, Fun, Acc0, N0, #fold_options{max=Max}=Opts) ->
-    Acc = Fun({K, dec(V)}, Acc0),
+    #fold_options{key_enc=KE, val_enc=VE}=Opts,
+    Acc = Fun({enc(key, K, KE), dec(value, V, VE)}, Acc0),
     N = N0 + 1,
     if
         ((Max =:= 0) orelse (N < Max)) ->
@@ -191,13 +198,6 @@ fold_loop1({ok, K, V}, Itr, Fun, Acc0, N0, #fold_options{max=Max}=Opts) ->
         true ->
             Acc
     end.
-
-enc(T) ->
-    term_to_binary(T).
-
-dec(B) ->
-    binary_to_term(B).
-
 
 %% @doc Returns true if this backend contains any values; otherwise returns false.
 -spec is_empty(engine()) -> boolean() | {error, term()}.

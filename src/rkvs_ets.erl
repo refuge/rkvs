@@ -5,7 +5,8 @@
 %% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 %% @doc ETS backend
-%%
+%% Note: value encoding is ignored since everything is encoded as a term
+
 -module(rkvs_ets).
 -behaviour(rkvs_storage_backend).
 
@@ -25,12 +26,16 @@
          fold_keys/4,
          is_empty/1]).
 
+-import(rkvs_util, [enc/3, dec/3]).
 
 open(Name, Options) ->
     Ets = ets:new(kvdb_ets, [ordered_set,public]),
+    KeyEncoding = proplists:get_value(key_encoding, Options, raw),
+
     {ok, #engine{name=Name,
                  mod=?MODULE,
                  ref=Ets,
+                 key_enc=KeyEncoding,
                  options=Options}}.
 
 
@@ -44,26 +49,26 @@ destroy(#engine{ref=Ref}) ->
 contains(#engine{ref=Ref}, Key) ->
     ets:member(Ref, Key).
 
-get(#engine{ref=Ref}, Key) ->
-    case ets:lookup(Ref, Key) of
+get(#engine{ref=Ref, key_enc=KE}, Key) ->
+    case ets:lookup(Ref, enc(key, Key, KE)) of
         []              -> {error, not_found};
         [{Key, Value}]  -> Value
     end.
 
-put(#engine{ref=Ref}, Key, Value) ->
-    true = ets:insert(Ref, {Key, Value}),
+put(#engine{ref=Ref, key_enc=KE}, Key, Value) ->
+    true = ets:insert(Ref, {enc(key, Key, KE), Value}),
     ok.
 
-clear(#engine{ref=Ref}, Key) ->
-    true = ets:delete(Ref, Key),
+clear(#engine{ref=Ref, key_enc=KE}, Key) ->
+    true = ets:delete(Ref, enc(key, Key, KE)),
     ok.
 
-write_batch(#engine{ref=Ref}, Ops) ->
+write_batch(#engine{ref=Ref, key_enc=KE}, Ops) ->
     lists:foreach(fun
             ({put, K, V}) ->
-                true = ets:insert(Ref, {K, V});
+                true = ets:insert(Ref, {enc(key, K, KE), V});
             ({delete, K}) ->
-                true = ets:delete(Ref, K)
+                true = ets:delete(Ref, enc(key, K, KE))
         end, Ops).
 
 scan(Engine, Start, End, Max) ->
@@ -84,34 +89,29 @@ clear_range(Engine, Start, End, Max) ->
                                          {max, Max}]),
     write_batch(Engine, Ops).
 
-fold_keys(#engine{ref=Ref}, Fun, Acc0, Opts) ->
-    do_fold(Ref, Fun, Acc0, rkvs_util:fold_options(Opts, #fold_options{}),
+fold_keys(#engine{ref=Ref, key_enc=KE}, Fun, Acc0, Opts) ->
+    do_fold(Ref, Fun, Acc0, rkvs_util:fold_options(Opts,
+                                                   #fold_options{key_enc=KE}),
             keys_only).
 
-fold(#engine{ref=Ref}, Fun, Acc0, Opts) ->
-    do_fold(Ref, Fun, Acc0, rkvs_util:fold_options(Opts, #fold_options{}),
+fold(#engine{ref=Ref, key_enc=KE}, Fun, Acc0, Opts) ->
+    do_fold(Ref, Fun, Acc0, rkvs_util:fold_options(Opts,
+                                                   #fold_options{key_enc=KE}),
             values).
 
-do_fold(Ref, Fun, Acc0, #fold_options{gt=GT, gte=GTE}=Opts, Type) ->
+do_fold(Ref, Fun, Acc0, #fold_options{gt=GT, gte=GTE, key_enc=KE}=Opts, Type) ->
     %% define start key and the precondition
     {Start, GType} = case {GT, GTE} of
                         {nil, nil} -> {first, gte};
-                        {nil, K} when K /= nil -> {K, gte};
-                        {K, _} -> {K, gt}
+                        {nil, K} when K /= nil -> {enc(key, K, KE), gte};
+                        {K, _} -> {enc(key, K, KE), gt}
                     end,
 
     FoldKey = case Start of
-                  first when GType =:= gte ->
+                  first ->
                       %% if first and condition is greater or equal then start
                       %% with the first key if any.
                       ets:first(Ref);
-                  first ->
-                      %% if first and condtion is greater then start with the
-                      %% next key after first if any.
-                      case ets:first(Ref) of
-                          'end_of_table' -> Acc0;
-                          FirstKey -> ets:next(Ref, FirstKey)
-                      end;
                   _ when GType =:= gte ->
                       %% does the key exists ? if true, starts with it, else
                       %% start with the next one if any
@@ -135,23 +135,27 @@ fold_loop(Key, Ref, Fun, Acc0, N0, #fold_options{lt=End}=Opts, Type)
 fold_loop(Key, Ref, Fun, Acc0, N0, #fold_options{lte=End}=Opts, Type)
   when End =:= nil orelse Key < End ->
     fold_loop1(Key, Ref, Fun, Acc0, N0, Opts, Type);
-fold_loop(Key, _Ref, Fun, Acc0, _N0, #fold_options{lt=nil, lte=Key}, keys_only) ->
-    Fun(Key, Acc0);
-fold_loop(Key, Ref, Fun, Acc0, _N0, #fold_options{lt=nil, lte=Key}, values) ->
+fold_loop(Key, _Ref, Fun, Acc0, _N0, #fold_options{lt=nil, lte=Key, key_enc=KE},
+          keys_only) ->
+    Fun(dec(key, Key, KE), Acc0);
+fold_loop(Key, Ref, Fun, Acc0, _N0, #fold_options{lt=nil,
+                                                  lte=Key,
+                                                  key_enc=KE}, values) ->
     case ets:lookup(Ref, Key) of
         [] -> Acc0;
-        [{Key, Val}] -> Fun({Key, Val}, Acc0)
+        [{Key, Val}] -> Fun({dec(key, Key, KE), Val}, Acc0)
     end;
 fold_loop(_Key, _Ref, _Fun, Acc, _N, _Opts, _Type) ->
     Acc.
 
 fold_loop1(Key, Ref, Fun, Acc0, N0, #fold_options{max=Max}=Opts, Type) ->
+    #fold_options{key_enc=KE}=Opts,
     {Acc, N} = case Type of
-        keys_only -> {Fun(Key, Acc0), N0 + 1};
+        keys_only -> {Fun(dec(key, Key, KE), Acc0), N0 + 1};
         values ->
             case ets:lookup(Ref, Key) of
                 [] -> {Acc0, N0 + 1};
-                [{Key, Val}] -> {Fun({Key, Val}, Acc0), N0 + 1}
+                [{Key, Val}] -> {Fun({dec(key, Key, KE), Val}, Acc0), N0 + 1}
             end
     end,
     if ((Max =:=0) orelse (N < Max)) ->

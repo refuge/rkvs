@@ -34,7 +34,6 @@
              kvs/0,
              ops_kvs/0]).
 
-
 %% @doc open a storage, amd pass options to the backend.
 -spec open(Name::binary(), Options::list()) ->
     {ok, engine()} | {error, any()}.

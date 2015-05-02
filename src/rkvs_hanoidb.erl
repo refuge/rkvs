@@ -34,6 +34,7 @@
          fold_keys/4,
          is_empty/1]).
 
+-import(rkvs_util, [enc/3, dec/3]).
 
 open(Name, Options) ->
     Path = case proplists:get_value(db_dir, Options) of
@@ -42,11 +43,15 @@ open(Name, Options) ->
            end,
 
     DbOpts = proplists:get_value(db_opts, Options, [{sync_strategy, sync}]),
+    KeyEncoding = proplists:get_value(key_encoding, Options, raw),
+    ValueEncoding = proplists:get_value(value_encoding, Options, term),
     case hanoidb:open(Path, DbOpts) of
         {ok, Ref} ->
             {ok, #engine{name=Name,
                          mod=?MODULE,
                          ref=Ref,
+                         key_enc=KeyEncoding,
+                         val_enc=ValueEncoding,
                          options=Options}};
         Error ->
             Error
@@ -65,25 +70,25 @@ contains(Engine, Key) ->
                                    {max, 1}]).
 
 
-get(#engine{ref=Ref}, Key) ->
-    case hanoidb:get(Ref, Key) of
-        {ok, Val} -> dec(Val);
+get(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Key) ->
+    case hanoidb:get(Ref, enc(key, Key, KE)) of
+        {ok, Val} -> dec(value, Val, VE);
         not_found -> {error, not_found};
         Error -> Error
     end.
 
-put(#engine{ref=Ref}, Key, Value) ->
-    hanoidb:put(Ref, Key, enc(Value)).
+put(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Key, Value) ->
+    hanoidb:put(Ref, enc(key, Key, KE), enc(value, Value, VE)).
 
-clear(#engine{ref=Ref}, Key) ->
-    hanoidb:delete(Ref, Key).
+clear(#engine{ref=Ref, key_enc=KE}, Key) ->
+    hanoidb:delete(Ref, enc(key, Key, KE)).
 
-write_batch(#engine{ref=Ref}, Ops0) ->
+write_batch(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Ops0) ->
     Ops = lists:reverse(lists:foldl(fun
                     ({put, K, V}, Acc) ->
-                        [{put, K, enc(V)} | Acc];
-                    (Op, Acc) ->
-                        [Op | Acc]
+                        [{put, enc(key, K, KE), enc(value, V, VE)} | Acc];
+                    ({delete, K}, Acc) ->
+                        [{delete, enc(key, K, KE)} | Acc]
                 end, [], Ops0)),
 
     hanoidb:transact(Ref, Ops).
@@ -108,18 +113,18 @@ clear_range(Engine, Start, End, Max) ->
     write_batch(Engine, Ops).
 
 
-fold_keys(#engine{ref=Ref}, Fun, Acc0, Opts) ->
-    KeyRange = key_range(Opts),
+fold_keys(#engine{ref=Ref, key_enc=KE}, Fun, Acc0, Opts) ->
+    KeyRange = key_range(Opts, KE),
     WrapperFun = fun(K, _V, Acc1) ->
-                         Fun(K, Acc1)
+                         Fun(dec(key, K, KE), Acc1)
                  end,
     hanoidb:fold_range(Ref, WrapperFun, Acc0, KeyRange).
 
 
-fold(#engine{ref=Ref}, Fun, Acc0, Opts) ->
-    KeyRange = key_range(Opts),
+fold(#engine{ref=Ref, key_enc=KE, val_enc=VE}, Fun, Acc0, Opts) ->
+    KeyRange = key_range(Opts, KE),
     WrapperFun = fun(K, V, Acc1) ->
-                         Fun({K, V}, Acc1)
+                         Fun({dec(key, K, KE), dec(value, V, VE)}, Acc1)
                  end,
     hanoidb:fold_range(Ref, WrapperFun, Acc0, KeyRange).
 
@@ -129,30 +134,30 @@ is_empty(Engine) ->
         _ -> false
     end.
 
-enc(T) ->
-    term_to_binary(T).
+key_range(Opts, KE) ->
+    key_range(Opts, KE, #key_range{}).
 
-dec(B) ->
-    binary_to_term(B).
-
-key_range(Opts) ->
-    key_range(Opts, #key_range{}).
-
-key_range([], KR) ->
+key_range([], _KE, KR) ->
     KR;
-key_range([{start_key, Start} | Rest], KR) ->
-    key_range(Rest, KR#key_range{from_key=Start, from_inclusive=true});
-key_range([{end_key, End} | Rest], KR) ->
-    key_range(Rest, KR#key_range{to_key=End, to_inclusive=true});
-key_range([{gt, Start} | Rest], KR) ->
-    key_range(Rest, KR#key_range{from_key=Start, from_inclusive=false});
-key_range([{gte, Start} | Rest], KR) ->
-    key_range(Rest, KR#key_range{from_key=Start, from_inclusive=true});
-key_range([{lt, End} | Rest], KR) ->
-    key_range(Rest, KR#key_range{to_key=End, to_inclusive=false});
-key_range([{lte, End} | Rest], KR) ->
-    key_range(Rest, KR#key_range{to_key=End, to_inclusive=true});
-key_range([{max, Max} | Rest], KR) ->
-    key_range(Rest, KR#key_range{limit=Max});
-key_range([_ | Rest], KR) ->
-    key_range(Rest, KR).
+key_range([{start_key, Start} | Rest], KE, KR) ->
+    key_range(Rest, KE, KR#key_range{from_key=enc(key, Start, KE),
+                                     from_inclusive=true});
+key_range([{end_key, End} | Rest], KE, KR) ->
+    key_range(Rest, KE, KR#key_range{to_key=enc(key, End, KE),
+                                     to_inclusive=true});
+key_range([{gt, Start} | Rest], KE, KR) ->
+    key_range(Rest, KE, KR#key_range{from_key=enc(key, Start, KE),
+                                     from_inclusive=false});
+key_range([{gte, Start} | Rest], KE, KR) ->
+    key_range(Rest, KE, KR#key_range{from_key=enc(key, Start, KE),
+                                     from_inclusive=true});
+key_range([{lt, End} | Rest], KE, KR) ->
+    key_range(Rest, KE, KR#key_range{to_key=enc(key, End, KE),
+                                     to_inclusive=false});
+key_range([{lte, End} | Rest], KE, KR) ->
+    key_range(Rest, KE, KR#key_range{to_key=enc(key, End, KE),
+                                     to_inclusive=true});
+key_range([{max, Max} | Rest], KE, KR) ->
+    key_range(Rest, KE, KR#key_range{limit=Max});
+key_range([_ | Rest], KE,  KR) ->
+    key_range(Rest, KE, KR).

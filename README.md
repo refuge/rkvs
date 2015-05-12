@@ -4,7 +4,7 @@
 
 Copyright (c) 2014-2015 Benoît Chesneau.
 
-__Version:__ 0.2.0
+__Version:__ 0.2.1
 
 rkvs is a simple Key-Value database interface. It offers for now a frontend to
 the following K/V storages: ets, leveldb, rocksdb, hanoidb, bitcask.

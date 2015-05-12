@@ -3,7 +3,7 @@
 %% file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 @copyright 2014-2015 Benoît Chesneau.
-@version 0.2.0
+@version 0.2.1
 @title rkvs - Simple Erlang Key/Values interface
 
 @doc
